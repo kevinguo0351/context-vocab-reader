@@ -1,13 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>context-vocab-reader</title>
+    <title>Context Vocab Reader</title>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <header class="ctx-toolbar">
+        <h1>Context Vocab Reader</h1>
+        <span class="ctx-status" id="status">Day 1 POC · 选 PDF 开始</span>
+        <label class="ctx-file-btn">
+          📂 加载 PDF
+          <input type="file" id="file-input" accept=".pdf" hidden />
+        </label>
+      </header>
+      <main id="reader-main">
+        <div class="placeholder">
+          <p>选一个 PDF 文件开始阅读</p>
+          <p class="hint">划词后，捕获到的「目标词 + 600 字上下文」会打印到浏览器 Console (F12 → Console)</p>
+        </div>
+      </main>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
