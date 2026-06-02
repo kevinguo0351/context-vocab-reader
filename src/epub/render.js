@@ -4,6 +4,7 @@
 // object, no need to chase mouse events through the sandbox.
 
 import ePub from "epubjs";
+import { setupReadingControls } from "./reading.js";
 
 export async function renderEpub(arrayBuffer, container, { startCfi } = {}) {
   const viewer = document.createElement("div");
@@ -39,6 +40,9 @@ export async function renderEpub(arrayBuffer, container, { startCfi } = {}) {
   orientMq.addEventListener?.("change", () => rendition.spread(spreadFor()));
 
   await rendition.display(startCfi || undefined);
+
+  // Reading comfort: font size / line height / theme (persisted).
+  setupReadingControls(rendition, viewer, nav);
 
   nav.querySelector('[data-dir="prev"]').addEventListener("click", () => rendition.prev());
   nav.querySelector('[data-dir="next"]').addEventListener("click", () => rendition.next());

@@ -32,8 +32,9 @@
 | 文件 | 职责 | 关键导出 |
 |---|---|---|
 | `main.js` | 入口。装配查词链路、批量控制器、触屏手势、加载文件、EPUB 事件绑定。持有 `currentBook` / `currentRendition`。 | — |
-| `pdf/render.js` | PDF→每页 `canvas`（视觉）+ `.textLayer`（透明可选文本）。**按容器宽自适应缩放**。 | `renderPdf` |
-| `epub/render.js` | EPUB→epubjs `rendition`（分页 iframe）。翻页按钮、方向键、**spread 按横竖屏**、进度（CFI）。 | `renderEpub` |
+| `pdf/render.js` | PDF→每页 `canvas`（视觉）+ `.textLayer`（透明可选文本）。**按容器宽自适应缩放** + **懒加载**（占位 div + IntersectionObserver 按需渲染）。 | `renderPdf` |
+| `epub/render.js` | EPUB→epubjs `rendition`（分页 iframe）。翻页按钮、方向键/滑动、**spread 按横竖屏**、进度（CFI）、挂载阅读设置。 | `renderEpub` |
+| `epub/reading.js` | EPUB 阅读设置：字号/行距/主题（epubjs themes API），存 localStorage，控件在 nav。 | `setupReadingControls` |
 | `lookup/capture.js` | 从**选区**构造 `{word, context, page, rect}`。块祖先查找、上下文截取、iframe→父文档坐标换算。 | `setupCapture`, `captureSelectionInWindow`, `extractContext`, `findBlockAncestor`, `findAncestorMatching`, `parentDocRect` |
 | `lookup/gesture.js` | **触屏手势分类器**：把单指交互分成 选词/滑动/点击/滚动 并路由。 | `setupReaderGestures` |
 | `lookup/panel.js` | 浮起「✦查词」按钮 + 释义面板（词性/释义/语境义/记忆点/词典外链/存欧陆）。`renderResultInto` 被复习窗右栏复用。 | `showButton`, `openPanel`, `dismissAll`, `installPanelLifecycle`, `renderResultInto` |
@@ -140,10 +141,17 @@
 - 复习窗 `@media (orientation:portrait),(max-width:900px)` 竖向堆叠。
 - 补 `:active`/`:focus-visible`（触屏无 hover）。
 
-### 4.5 PDF 自适应缩放（`pdf/render.js`）
+### 4.5 PDF 自适应缩放 + 懒加载（`pdf/render.js`）
 - `fitScale` = `clamp((容器宽-32)/页面原始宽, 0.75, 2.0)` —— 替代原来写死的 1.5（会溢出窄屏）。
 - canvas backing store = `cssViewport × min(dpr,2)` 保清晰，`style.width/height` 用 CSS 像素显示。
 - **`--total-scale-factor` 仍 = CSS scale（不乘 dpr）**，否则文本层/标记框错位（见 §6 坑1）。
+- **懒加载**：先用 page1 尺寸给每页铺正确尺寸的占位 `.pdf-page`（保证滚动高度正确），再用 `IntersectionObserver`（root=视口，`rootMargin:'150% 0px'`）在页面接近视口时才渲染该页的 canvas+文本层（渲染后 `unobserve` + `data-rendered` 防重复，并按该页真实尺寸校正占位）。200 页 PDF 秒开、内存有界。**只有渲染过的页（=用户看得到的页）能选词/标记**——符合直觉。
+
+### 4.7 EPUB 阅读设置（`epub/reading.js`）
+`setupReadingControls(rendition, viewer, nav)`：字号 A−/A+（80–220%）、行距循环（1.3/1.5/1.8/2.1）、主题循环（亮/暗/护眼）。用 epubjs `themes.register/select/fontSize/override`（epubjs 会自动应用到后续每章 iframe，故只需设一次 + 点击时更新）。设置存 localStorage（`epub_font`/`epub_lh`/`epub_theme`）跨书跨会话；切主题时同步 `.epub-viewer` 背景色（letterbox 边距配色一致）。
+
+### 4.8 安全区 + 触摸细节（`style.css`）
+工具栏/EPUB nav 用 `env(safe-area-inset-*)` 避刘海与圆角；`#reader-main` 与按钮 `touch-action: manipulation`（去 300ms 双击缩放延迟，保留 pan/pinch/选择）；`html,body { overscroll-behavior: none }` 防下拉刷新/回弹干扰阅读。
 
 ### 4.6 EPUB spread（`epub/render.js`）
 横屏且宽≥800 → `spread:'auto'`（双页），否则 `'none'`（单页）；旋转时 `rendition.spread(...)` 重排。

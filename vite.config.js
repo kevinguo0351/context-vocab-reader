@@ -3,8 +3,8 @@
 // dev-server settings for Tauri (fixed port + no log clearing) when run
 // under `tauri dev`.
 //
-// Note: we ship only SVG icons. iOS Safari prefers PNG for apple-touch-icon;
-// generating high-res PNGs is queued for Phase 3 polish.
+// Icons: SVG (scalable) + PNG 192/512 (Android/maskable) + apple-touch-icon
+// 180 (iOS home screen — Safari ignores SVG/manifest icons for the home icon).
 
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -31,7 +31,7 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.svg"],
+      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Context Vocab Reader",
         short_name: "VocabReader",
@@ -42,12 +42,10 @@ export default defineConfig({
         orientation: "any",
         start_url: "/",
         icons: [
-          {
-            src: "favicon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any maskable",
-          },
+          { src: "favicon.svg", sizes: "any", type: "image/svg+xml" },
+          { src: "icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "icon-512.png", sizes: "512x512", type: "image/png" },
+          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {

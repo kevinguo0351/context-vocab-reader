@@ -220,13 +220,29 @@ body {
 
 .epub-nav {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 10px 20px;
   background: var(--bg-2);
   border-top: 1px solid var(--border);
   font-size: 13px;
+}
+
+/* Reading-comfort controls (font / line-height / theme), separated by a divider. */
+.epub-reading-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.epub-reading-ctrl::before {
+  content: "";
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 6px;
 }
 
 .epub-nav-btn {
@@ -916,4 +932,35 @@ body {
 .batch-done-btn:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+/* ---------- Safe-area (notch / rounded corners) + touch ergonomics ---------- */
+
+/* Don't let the OS pull-to-refresh / rubber-band hijack reading scroll. */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/* Keep the toolbar clear of notches / rounded corners (viewport-fit=cover). */
+.ctx-toolbar {
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+}
+
+/* EPUB bottom nav clears the home indicator. */
+.epub-nav {
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+
+/* Remove the 300ms double-tap-zoom delay on the reader and controls while
+   keeping pan + pinch-zoom + text selection. */
+#reader-main,
+button,
+.ctx-batch-btn,
+.epub-nav-btn,
+.ctxvocab-fab,
+.batch-mark-box {
+  touch-action: manipulation;
 }

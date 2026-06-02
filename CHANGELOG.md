@@ -6,6 +6,24 @@
 
 ---
 
+## [0.1.0] - 2026-06-02 · 平板优化打磨（首个发布版）
+
+第一个打了 tag 的版本。整合了逐词查询、批量模式、平板触屏，并补齐了一轮平板体验打磨。
+
+### Added
+- **PDF 懒加载渲染**（`pdf/render.js`）：先给每页铺正确尺寸的占位 `.pdf-page`，再用 IntersectionObserver（rootMargin ~150%）只渲染视口附近页的 canvas+文本层。大文件秒开、内存有界；标记/查词在已渲染页正常（=用户能看到的页）。
+- **EPUB 阅读设置**（新 `src/epub/reading.js`）：字号 A−/A+、行距循环、亮/暗/护眼主题切换；用 epubjs themes API，存 localStorage 跨书跨会话生效；控件在底部 nav，与正文 letterbox 背景同步。
+- **PWA iOS/Android 图标**：生成 192/512（含 maskable）/apple-touch-180 PNG，写入 manifest + `apple-touch-icon` link，「添加到主屏」不再模糊。
+
+### Changed
+- **安全区 + 触摸细节**（`style.css`）：工具栏/EPUB nav 用 `env(safe-area-inset-*)` 避刘海与圆角；`#reader-main` 等加 `touch-action: manipulation` 去掉双击缩放 300ms 延迟（保留 pan/pinch/选择）；`overscroll-behavior: none` 防下拉刷新干扰阅读。
+- EPUB nav 改 `flex-wrap` 以容纳阅读控件。
+
+### 验证
+chrome-devtools 触屏模拟：PDF 懒加载（5 页文档加载时仅渲染近视口 3 页，滚动后补齐）、标记仍 deltaX/W=0；EPUB 阅读控件 44px、切主题 viewer 背景同步 `#15151f`、设置持久化；触摸目标/安全区生效。EPUB 正文样式因 epubjs 在无头环境不渲染未能可视验证（同既有局限，真机生效）。
+
+---
+
 ## 2026-06-02 · 平板 / 触屏支持
 
 横竖屏都优化，目标符合平板使用习惯。桌面鼠标行为保持不变。
