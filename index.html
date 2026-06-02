@@ -3,22 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Context Vocab Reader</title>
   </head>
   <body>
     <div id="app">
       <header class="ctx-toolbar">
         <h1>Context Vocab Reader</h1>
-        <span class="ctx-status" id="status">Day 1 POC · 选 PDF 开始</span>
-        <label class="ctx-file-btn">
-          📂 加载 PDF
-          <input type="file" id="file-input" accept=".pdf" hidden />
-        </label>
+        <span class="ctx-status" id="status">选 PDF 或 EPUB 开始</span>
+        <button class="ctx-batch-btn" id="batch-btn" type="button" aria-label="批量标记模式">批量</button>
+        <button class="ctx-icon-btn" id="settings-btn" type="button" aria-label="设置">⚙</button>
+        <button class="ctx-file-btn" id="open-file-btn" type="button">📂 加载文件</button>
       </header>
       <main id="reader-main">
         <div class="placeholder">
-          <p>选一个 PDF 文件开始阅读</p>
+          <p>选一个 PDF 或 EPUB 文件开始阅读</p>
           <p class="hint">划词后，捕获到的「目标词 + 600 字上下文」会打印到浏览器 Console (F12 → Console)</p>
         </div>
       </main>

@@ -54,6 +54,25 @@ body {
   color: var(--muted);
 }
 
+.ctx-icon-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctx-icon-btn:hover {
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .ctx-file-btn {
   cursor: pointer;
   background: var(--accent);
@@ -67,6 +86,30 @@ body {
 
 .ctx-file-btn:hover {
   filter: brightness(1.07);
+}
+
+.ctx-batch-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ctx-batch-btn:hover {
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Active batch session — filled accent so the toggle state is obvious. */
+.ctx-batch-btn.active {
+  background: var(--accent);
+  color: #0e0e22;
+  border-color: var(--accent);
 }
 
 #reader-main {
@@ -126,6 +169,27 @@ body {
   transform-origin: 0% 0%;
 }
 
+/* pdf.js v5 sets per-span --font-height / --scale-x inline and relies on the
+   stylesheet to derive font-size + transform from --total-scale-factor (set on
+   the .textLayer container in pdf/render.js). Mirrors pdf_viewer.css so the
+   text layer overlays the canvas exactly — without it spans render at 16px with
+   no scaleX and selection/marks are offset from the glyphs. */
+.textLayer {
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.textLayer > :not(.markedContent),
+.textLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
 .textLayer span.markedContent {
   top: 0;
   height: 0;
@@ -133,4 +197,723 @@ body {
 
 .textLayer ::selection {
   background: rgba(124, 131, 253, 0.35);
+}
+
+/* EPUB mode — main takes full width and lets the viewer own the height.
+   Paginated flow needs a fixed height container to compute page breaks. */
+#reader-main[data-kind="epub"] {
+  padding: 0;
+  gap: 0;
+  align-items: stretch;
+}
+
+.epub-viewer {
+  flex: 1;
+  min-height: 0;
+  background: #fafaf6;
+  color: #1a1a2e;
+}
+
+.epub-viewer iframe {
+  border: 0;
+}
+
+.epub-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.epub-nav-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.epub-nav-btn:hover {
+  background: var(--border);
+}
+
+.epub-nav-loc {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Floating action button — anchored to selection rect (parent-doc coords). */
+.ctxvocab-fab {
+  position: absolute;
+  z-index: 2147483646;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.ctxvocab-fab:hover {
+  background: var(--bg-2);
+  border-color: var(--accent);
+}
+
+/* Lookup panel */
+.ctxvocab-panel {
+  position: absolute;
+  z-index: 2147483647;
+  width: 340px;
+  max-height: 480px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  padding: 12px 14px 14px;
+}
+
+.ctxvocab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ctxvocab-word-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ctxvocab-word {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctxvocab-type-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #cfd2ff;
+  background: rgba(124, 131, 253, 0.15);
+  border: 1px solid rgba(124, 131, 253, 0.4);
+  border-radius: 999px;
+  padding: 2px 9px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.ctxvocab-close {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.ctxvocab-close:hover {
+  background: var(--border);
+  color: #fff;
+}
+
+.ctxvocab-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ctxvocab-meaning {
+  background: linear-gradient(180deg, #232347 0%, #1f1f3d 100%);
+  border-radius: 8px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+}
+
+.ctxvocab-meaning-text {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #fff;
+  word-break: break-word;
+}
+
+.ctxvocab-callout {
+  background: rgba(124, 131, 253, 0.08);
+  border: 1px solid rgba(124, 131, 253, 0.25);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.ctxvocab-callout-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #9ea4ff;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.ctxvocab-callout-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #e6e7ff;
+  word-break: break-word;
+}
+
+.ctxvocab-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 12px;
+  color: #b6b8c8;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+}
+
+.ctxvocab-note-text {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.ctxvocab-loading {
+  color: var(--muted);
+  font-style: italic;
+  padding: 10px 0;
+}
+
+.ctxvocab-error {
+  color: #ff8a8a;
+  background: #2a1a22;
+  border: 1px solid #5a2a34;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.ctxvocab-dicts {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.ctxvocab-dicts-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.ctxvocab-dicts-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ctxvocab-link {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+  font-size: 12px;
+  color: #cfd2ff;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.ctxvocab-link:hover {
+  background: #2a2a55;
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ctxvocab-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ctxvocab-btn {
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.ctxvocab-btn:hover:not([disabled]) {
+  background: #2a2a55;
+  border-color: var(--accent);
+}
+
+.ctxvocab-btn[disabled] {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.ctxvocab-save {
+  font-weight: 600;
+  background: #2a2a55;
+  color: #fff;
+  border-color: #3d3d77;
+}
+
+.ctxvocab-saved {
+  background: #1f3a2a !important;
+  border-color: #3da66f !important;
+  color: #b6f0c8 !important;
+}
+
+.ctxvocab-status {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ctxvocab-status-error {
+  color: #ff8a8a;
+}
+
+/* Settings dialog */
+.ctxvocab-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ctxvocab-settings-panel {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+.ctxvocab-settings-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ctxvocab-settings-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.ctxvocab-settings-close {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.ctxvocab-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.ctxvocab-settings-field input {
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.ctxvocab-settings-field input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.ctxvocab-settings-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.ctxvocab-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ctxvocab-settings-actions button {
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ctxvocab-settings-actions button:hover {
+  border-color: var(--accent);
+}
+
+.ctxvocab-settings-save {
+  background: var(--accent) !important;
+  color: #0e0e22 !important;
+  font-weight: 600;
+  border-color: var(--accent) !important;
+}
+
+/* ---------- Batch mode ---------- */
+
+.batch-banner {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2147483640;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--accent);
+  color: #0e0e22;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 7px 10px 7px 18px;
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.batch-done-btn {
+  background: #0e0e22;
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 5px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.batch-done-btn:hover {
+  filter: brightness(1.3);
+}
+
+.batch-menu {
+  position: fixed;
+  z-index: 2147483646;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  padding: 4px;
+}
+
+.batch-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.batch-menu button:hover {
+  background: var(--accent);
+  color: #0e0e22;
+}
+
+/* In-reader mark for EPUB / HTML (Tier 1, wrap span). outline (not border)
+   avoids reflowing surrounding text. */
+.batch-mark {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+  background: rgba(124, 131, 253, 0.22);
+  cursor: pointer;
+}
+
+/* In-reader mark for PDF (Tier 2, overlay box). Absolutely positioned inside
+   the .textLayer over the word's client rects — never mutates pdf.js spans, so
+   their scaleX transforms stay intact and the box aligns exactly. */
+.batch-mark-overlay {
+  position: absolute;
+  z-index: 5;
+  border-radius: 3px;
+  background: rgba(124, 131, 253, 0.25);
+  box-shadow: 0 0 0 1.5px var(--accent);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Review overlay */
+.batch-review-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: rgba(8, 8, 20, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.batch-review-panel {
+  width: min(1100px, 100%);
+  height: min(820px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.batch-review-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.batch-review-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.batch-review-title b {
+  color: var(--accent);
+}
+
+.batch-review-progress {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.batch-review-close {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.batch-review-close:hover {
+  background: var(--border);
+  color: #fff;
+}
+
+.batch-review-cols {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.batch-review-left {
+  flex: 0 0 70%;
+  overflow: auto;
+  padding: 24px 28px;
+  border-right: 1px solid var(--border);
+}
+
+.batch-review-right {
+  flex: 1;
+  overflow: auto;
+  padding: 18px 18px 22px;
+}
+
+.batch-review-hint {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 13px;
+  padding: 8px 2px;
+}
+
+.batch-block {
+  font-size: 17px;
+  line-height: 2.4;
+  color: var(--text);
+  margin: 0 0 18px;
+}
+
+/* Marked word in the left column: the word with its gloss stacked underneath. */
+.batch-mark-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: bottom;
+  line-height: 1.15;
+  margin: 0 2px;
+  padding: 1px 4px 2px;
+  border-radius: 6px;
+  border: 1px solid rgba(124, 131, 253, 0.45);
+  background: rgba(124, 131, 253, 0.1);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.batch-mark-box:hover {
+  background: rgba(124, 131, 253, 0.2);
+  border-color: var(--accent);
+}
+
+.batch-mark-box.selected {
+  background: rgba(124, 131, 253, 0.28);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.batch-mark-word {
+  font-weight: 600;
+  color: #fff;
+}
+
+.batch-gloss {
+  font-size: 11px;
+  color: #cfd2ff;
+  margin-top: 1px;
+}
+
+/* ---------- Tablet / touch ---------- */
+
+/* Panel never exceeds the viewport on a tablet. JS positioning in panel.js
+   mirrors this (PANEL_W = min(340, innerWidth*0.92)). */
+.ctxvocab-panel {
+  width: min(340px, 92vw);
+}
+
+/* Touch devices have no hover and need ≥44px tap targets (WCAG). */
+@media (hover: none) and (pointer: coarse) {
+  .ctxvocab-fab {
+    padding: 10px 18px;
+    min-height: 44px;
+    font-size: 15px;
+  }
+  .ctx-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .ctx-file-btn,
+  .ctx-batch-btn,
+  .epub-nav-btn,
+  .batch-done-btn {
+    min-height: 44px;
+    padding: 11px 18px;
+  }
+  .ctxvocab-close,
+  .batch-review-close {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ctxvocab-btn,
+  .ctxvocab-link {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .batch-mark-box {
+    padding: 3px 6px 4px;
+  }
+}
+
+/* Review window: side-by-side on landscape, stacked on portrait / narrow. */
+@media (orientation: portrait), (max-width: 900px) {
+  .batch-review-cols {
+    flex-direction: column;
+  }
+  .batch-review-left {
+    flex: 1 1 auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .batch-review-right {
+    flex: 1 1 auto;
+  }
+}
+
+/* Touch has no :hover — give pressed/focus feedback so taps feel responsive. */
+.ctxvocab-fab:active,
+.ctxvocab-btn:active:not([disabled]),
+.epub-nav-btn:active,
+.ctx-file-btn:active,
+.ctx-batch-btn:active,
+.batch-done-btn:active,
+.batch-mark-box:active {
+  filter: brightness(1.15);
+}
+
+.ctx-icon-btn:focus-visible,
+.ctx-file-btn:focus-visible,
+.ctx-batch-btn:focus-visible,
+.ctxvocab-btn:focus-visible,
+.ctxvocab-close:focus-visible,
+.epub-nav-btn:focus-visible,
+.batch-done-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
