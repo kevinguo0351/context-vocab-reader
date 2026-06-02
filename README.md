@@ -1,47 +1,134 @@
 # Context Vocab Reader
 
-> 浏览器里就能用的"读外刊 + 读英文小说 + 读公版书"工具。每个生词都自带前后 300 字上下文，AI 中文解释，一键存欧陆。
+> 浏览器里就能用的「读外刊 / 读英文小说 / 读公版书」工具。每个生词都自带前后 ~300 字上下文 → AI 中文释义 → 一键存欧陆词典。支持 **PDF 与 EPUB**，支持 **桌面鼠标 + 平板触屏**。
 
-**配套项目**：[Context Vocab Chrome Extension](https://github.com/kevinguo0351/context-vocab-extension) —— 处理"网页划词"场景。这个 Reader 处理 PDF / EPUB / 网页文章 三种"读完整内容"场景。
-
----
-
-## 状态
-
-🚧 **WIP** —— 14 天 MVP 开发中。详细路线见 [TECHNICAL-PLAN.md](TECHNICAL-PLAN.md)。
-
-当前进度：
-- [x] Vite vanilla JS 脚手架
-- [x] 依赖装好（pdfjs-dist · epubjs · @mozilla/readability · dompurify · idb）
-- [x] 技术规划文档
-- [ ] PDF.js text-layer 选区 POC（Day 1-2）
-- [ ] 移植查词面板 UI（Day 3）
-- [ ] Cloudflare Worker 代理（Day 4）
-- [ ] 端到端 PDF 查词（Day 5）
-- [ ] EPUB 支持（Day 6-7）
-- [ ] 网页文章导入（Day 8-9）
-- [ ] 欧陆保存（Day 10）
-- [ ] Settings + 阅读库 + 语境档案（Day 11-13）
-- [ ] 部署 + landing（Day 14）
+**配套项目**：[Context Vocab Chrome Extension](https://github.com/kevinguo0351/context-vocab-extension) —— 处理「网页划词」。本 Reader 处理「读完整 PDF / EPUB」的另一半场景，复用同一套「上下文 + DeepSeek 释义 + 一键存欧陆」体验。
 
 ---
 
-## 本地开发
+## 它能做什么
+
+### 1. 逐词查询（普通模式）
+- **桌面**：鼠标划词 → 浮起「✦ 查词」按钮 → 点开释义面板。
+- **平板**：**单击单词即查**（Kindle 式），或长按拖拽选短语 → 浮起查词按钮。
+- 释义面板由 DeepSeek 生成四段：**字典义** / **在这段里的意思（结合上下文）** / **词性** / **记忆点**；附朗文·韦氏·剑桥外链。
+- 一键**存到欧陆生词本**（带语境笔记），同时镜像到**本地词库**（IndexedDB）。
+
+### 2. 批量模式（生词密度高时用）
+读一整段/一整页时生词太多、逐个查会打断节奏，于是：
+1. **进入**：工具栏「批量」按钮（平板）/ `Alt+B` / 右键菜单（桌面）。
+2. **沉浸读**，遇到不认识的词**点一下就标记**（不弹任何窗）。
+3. **结束**：横幅「完成」按钮 / 再按 `Alt+B`。
+4. 后台**并发批量生成**所有标记词的释义 → 自动存本地词库 + 推欧陆 → 弹出**两栏复习窗**：左栏重排文章、标记词加框且词下方显示中文释义；右栏显示选中词的完整释义。
+
+### 3. 平板适配（横竖屏都优化）
+- 单击查词 / 左右滑动翻 EPUB / 工具栏批量按钮 —— 无需键盘和右键。
+- 44px 触摸目标、面板不溢出、复习窗竖屏自动堆叠、PDF 按屏宽自适应缩放、EPUB 横屏双页/竖屏单页。
+- 已配置 PWA（`display: standalone`），可「添加到主屏幕」当独立 App 用。
+
+### 其它
+- **BYOK**（自带 key）：DeepSeek key 和欧陆 token 只存在浏览器 `localStorage`，不上传任何服务器。
+- 纯前端 SPA；跨域由一个**可选的、无状态的 Cloudflare Worker 代理**解决（见下）。
+- 阅读进度自动保存（EPUB 按 CFI），书目记在本地。
+
+---
+
+## 快速开始
 
 ```bash
+git clone https://github.com/kevinguo0351/context-vocab-reader.git
+cd context-vocab-reader
 npm install
-npm run dev
+npm run dev          # → http://localhost:1420  （端口固定，见 vite.config.js）
 ```
 
-打开 http://localhost:5173 看到目前的进度。
+构建 / 预览：
+
+```bash
+npm run build        # 产物在 dist/
+npm run preview
+```
+
+> Tauri 桌面壳（可选，未启用）：`npm run tauri:dev` / `npm run tauri:build`，需要 Rust 工具链。
 
 ---
 
-## 路线图
+## 配置 API Key（首次必做）
 
-参见 [TECHNICAL-PLAN.md](TECHNICAL-PLAN.md)。
+点右上角 **⚙ 设置**，填三项（都存在本地 `localStorage`）：
+
+| 字段 | 用途 | 哪里拿 |
+|---|---|---|
+| **DeepSeek API key** | 生成中文释义 | https://platform.deepseek.com |
+| **欧陆 token** | 存生词本（带笔记） | https://my.eudic.net/OpenAPI/Authorization |
+| **代理 URL**（可选） | 解决浏览器跨域，见下 | 部署 Worker 后得到 |
+
+### 为什么需要「代理 URL」
+DeepSeek 和欧陆的接口**不带浏览器 CORS 头**，纯网页/PWA 直接 `fetch` 会被浏览器拦截。两种解法：
+- **部署 `worker/worker.js` 到 Cloudflare**（推荐，免费）：它是个**透明无状态代理**——只转发请求 + 加 CORS 头，**不存任何密钥**。部署后把它的 URL 填进「代理 URL」。三条路由：`/deepseek`、`/eudic/word`、`/eudic/note`。部署步骤见 `worker/worker.js` 顶部注释。
+- **跑在 Tauri 壳里**：同源限制不适用，可不配代理直连。
+
+「代理 URL」留空时直连——在 Tauri 里能用，纯浏览器里会被 CORS 拦。
 
 ---
+
+## 交互速查
+
+| 操作 | 桌面 | 平板触屏 |
+|---|---|---|
+| 查单个词 | 鼠标划词 → ✦查词 | **单击单词** |
+| 查短语 | 鼠标划词 → ✦查词 | 长按拖拽选中 → ✦查词 |
+| 进/出批量模式 | `Alt+B` 或右键菜单 | 工具栏「批量」/ 横幅「完成」 |
+| 批量里标词 | 点击单词 | 点击单词 |
+| EPUB 翻页 | 方向键 / 底部按钮 | **左右滑动** / 底部按钮 |
+| 关闭面板/复习窗 | `Esc` / × / 点外部 | × / 点外部 |
+
+---
+
+## 项目结构
+
+```
+context-vocab-reader/
+├── index.html              # 工具栏 + #reader-main 容器
+├── vite.config.js          # Vite + PWA（端口 1420 固定）
+├── worker/worker.js        # 可选 Cloudflare 代理（DeepSeek + 欧陆 CORS）
+├── src/
+│   ├── main.js             # 入口：装配查词/批量/触屏/加载文件
+│   ├── style.css           # 全部样式（含触屏 @media、批量、复习窗）
+│   ├── pdf/render.js        # PDF → canvas + 透明 textLayer（自适应缩放）
+│   ├── epub/render.js       # EPUB → epubjs iframe（翻页/spread/进度）
+│   ├── lookup/
+│   │   ├── capture.js       # 选区 → {word, context, rect}（PDF+EPUB 通用）
+│   │   ├── gesture.js       # 触屏手势分类器（tap/选词/滑动/滚动）
+│   │   ├── panel.js         # 浮窗按钮 + 释义面板（renderResultInto 共享）
+│   │   └── api.js           # DeepSeek 释义 + 欧陆存词 + 5 级 JSON 容错
+│   ├── batch/
+│   │   ├── mode.js          # 批量模式状态机（入口/横幅/快捷键/右键）
+│   │   ├── mark.js          # 点→词→块 + 标记（PDF 覆盖框 / EPUB 包裹）+ 点词查词
+│   │   ├── pipeline.js      # 批量并发生成释义 → 存本地 + 推欧陆
+│   │   └── review.js        # 两栏复习浮窗
+│   ├── settings/dialog.js   # ⚙ key 设置弹窗
+│   ├── store/db.js          # IndexedDB（library / vocab / batches，v2）
+│   └── platform/index.js    # 文件选择 + isTauri / isTouch
+└── docs/
+    ├── IMPLEMENTATION.md    # ★ 所有逻辑详解（先读这个）
+    └── architecture.md      # 早期设计权衡与路线（A/B/C 方案对比）
+```
+
+---
+
+## 文档导航
+
+- **[docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** —— **as-built 全部逻辑详解**：数据流、每个模块职责、批量管线、触屏模型、IndexedDB schema、三个关键坑。**换新电脑 clone 后先读它。**
+- [CHANGELOG.md](CHANGELOG.md) —— 每一次更新的日志。
+- [docs/architecture.md](docs/architecture.md) —— 立项期的方案权衡（历史参考，非现状）。
+- [TECHNICAL-PLAN.md](TECHNICAL-PLAN.md) —— 最初的 14 天 MVP 计划（历史）。
+
+---
+
+## 技术栈
+
+Vite + 原生 JS（无框架/TS/Tailwind，刻意与扩展保持一致） · pdfjs-dist · epubjs · idb · dompurify · @mozilla/readability（已装未用）· vite-plugin-pwa · 可选 Cloudflare Worker。
 
 ## License
 
