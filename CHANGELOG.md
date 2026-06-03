@@ -6,6 +6,13 @@
 
 ---
 
+## [0.1.2] - 2026-06-03 · 修复
+
+### Fixed
+- **代理 URL 漏填 `https://` 导致 DeepSeek 405**：若 ⚙「代理 URL」只填了 `xxx.workers.dev`（无协议），浏览器把它当**相对路径**，请求实际打到静态站点（GitHub Pages）→ 返回 405 而非到达 Worker。`api.js` 的 `workerBase()` 现自动补 `https://`。
+
+---
+
 ## [0.1.1] - 2026-06-03 · 修复
 
 ### Fixed

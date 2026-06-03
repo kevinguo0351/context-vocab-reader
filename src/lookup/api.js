@@ -18,7 +18,12 @@ const EUDIC_BASE_DIRECT = "https://api.frdic.com/api/open/v1";
 const EUDIC_NOTE_MAX = 900;
 
 function workerBase() {
-  return (localStorage.getItem("worker_url") || "").trim().replace(/\/$/, "");
+  let b = (localStorage.getItem("worker_url") || "").trim().replace(/\/+$/, "");
+  // Forgive a scheme-less proxy URL (e.g. "xxx.workers.dev"). Without this it
+  // resolves as a RELATIVE path against the app origin and POSTs hit the static
+  // host → 405. Default to https.
+  if (b && !/^https?:\/\//i.test(b)) b = `https://${b}`;
+  return b;
 }
 function deepseekUrl() {
   const b = workerBase();
