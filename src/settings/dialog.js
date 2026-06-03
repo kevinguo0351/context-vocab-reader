@@ -8,7 +8,7 @@ const DIALOG_ID = "ctxvocab-settings";
 
 export function openSettings() {
   document.getElementById(DIALOG_ID)?.remove();
-  const { deepseek_key, eudic_token, worker_url } = getKeys();
+  const { deepseek_key, eudic_token } = getKeys();
 
   const dlg = document.createElement("div");
   dlg.id = DIALOG_ID;
@@ -27,13 +27,9 @@ export function openSettings() {
         <span>欧陆 OpenAPI Token</span>
         <input type="password" data-key="eudic_token" autocomplete="off" placeholder="访问 my.eudic.net 获取" />
       </label>
-      <label class="ctxvocab-settings-field">
-        <span>代理 URL（可选 · 见 worker/worker.js）</span>
-        <input type="text" data-key="worker_url" autocomplete="off" placeholder="https://xxx.workers.dev" />
-      </label>
       <p class="ctxvocab-settings-hint">
         Key 仅存在浏览器 localStorage，不会上传任何服务器。<br />
-        浏览器直连受 CORS 限制——填代理 URL 后从 Worker 转发。Tauri 版本不需要代理。
+        DeepSeek / 欧陆 直接连接，无需代理。
       </p>
       <div class="ctxvocab-settings-actions">
         <button class="ctxvocab-settings-cancel" type="button">取消</button>
@@ -44,7 +40,6 @@ export function openSettings() {
 
   dlg.querySelector('[data-key="deepseek_key"]').value = deepseek_key;
   dlg.querySelector('[data-key="eudic_token"]').value = eudic_token;
-  dlg.querySelector('[data-key="worker_url"]').value = worker_url;
 
   const close = () => dlg.remove();
   dlg.querySelector(".ctxvocab-settings-close").addEventListener("click", close);
@@ -54,7 +49,6 @@ export function openSettings() {
     setKeys({
       deepseek_key: dlg.querySelector('[data-key="deepseek_key"]').value.trim(),
       eudic_token: dlg.querySelector('[data-key="eudic_token"]').value.trim(),
-      worker_url: dlg.querySelector('[data-key="worker_url"]').value.trim(),
     });
     close();
   });

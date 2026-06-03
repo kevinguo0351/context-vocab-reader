@@ -5,34 +5,19 @@
 //   - No service-worker IPC — exported async functions called directly from
 //     panel.js via dependency injection.
 //
-// CORS NOTE: DeepSeek + Eudic endpoints don't ship browser-CORS headers.
-// Two ways to call them from the browser/PWA build:
-//   - Set `worker_url` in localStorage to a Cloudflare Worker proxy
-//     (worker/worker.js handles routing + CORS).
-//   - Run inside the Tauri shell (Phase 1) where same-origin doesn't apply.
-// When `worker_url` is empty we go direct, which works in Tauri but will be
-// blocked in a plain browser — that's the intended fallback.
+// Both APIs support browser CORS, so we call them directly — no proxy. (They
+// are also China-domestic and directly reachable.)
 
-const DEEPSEEK_DIRECT = "https://api.deepseek.com/v1/chat/completions";
-const EUDIC_BASE_DIRECT = "https://api.frdic.com/api/open/v1";
+const DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions";
+const EUDIC_BASE = "https://api.frdic.com/api/open/v1";
 const EUDIC_NOTE_MAX = 900;
 
-function workerBase() {
-  let b = (localStorage.getItem("worker_url") || "").trim().replace(/\/+$/, "");
-  // Forgive a scheme-less proxy URL (e.g. "xxx.workers.dev"). Without this it
-  // resolves as a RELATIVE path against the app origin and POSTs hit the static
-  // host → 405. Default to https.
-  if (b && !/^https?:\/\//i.test(b)) b = `https://${b}`;
-  return b;
-}
 function deepseekUrl() {
-  const b = workerBase();
-  return b ? `${b}/deepseek` : DEEPSEEK_DIRECT;
+  return DEEPSEEK_URL;
 }
 function eudicUrl(path) {
-  // path is "/word" or "/note"; the proxy mirrors that under /eudic.
-  const b = workerBase();
-  return b ? `${b}/eudic${path}` : `${EUDIC_BASE_DIRECT}/studylist${path}`;
+  // path is "/word" or "/note".
+  return `${EUDIC_BASE}/studylist${path}`;
 }
 
 const SYSTEM_PROMPT =
@@ -55,14 +40,12 @@ export function getKeys() {
   return {
     deepseek_key: localStorage.getItem("deepseek_key") || "",
     eudic_token: localStorage.getItem("eudic_token") || "",
-    worker_url: localStorage.getItem("worker_url") || "",
   };
 }
 
-export function setKeys({ deepseek_key, eudic_token, worker_url }) {
+export function setKeys({ deepseek_key, eudic_token }) {
   if (deepseek_key !== undefined) localStorage.setItem("deepseek_key", deepseek_key);
   if (eudic_token !== undefined) localStorage.setItem("eudic_token", eudic_token);
-  if (worker_url !== undefined) localStorage.setItem("worker_url", worker_url);
 }
 
 // ---------- DeepSeek ----------

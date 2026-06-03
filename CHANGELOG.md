@@ -6,6 +6,13 @@
 
 ---
 
+## [0.1.4] - 2026-06-03 · 简化（移除代理）
+
+### Changed
+- **去掉 Cloudflare Worker 代理，改为直连**：实测 DeepSeek（`api.deepseek.com`）与欧陆（`api.frdic.com`）都支持网页跨域、且国内可直连，**不需要任何代理/后端**。删除了 `worker/` 目录、⚙ 里的「代理 URL」字段，以及 `api.js` 的代理逻辑（`worker_url`/`workerBase`）。`*.workers.dev` 在中国大陆不稳定/常被墙，直连更可靠也更省事。
+
+---
+
 ## [0.1.3] - 2026-06-03 · 修复
 
 ### Fixed

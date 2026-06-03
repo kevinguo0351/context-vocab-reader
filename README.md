@@ -2,7 +2,7 @@
 
 > 浏览器里就能用的「读外刊 / 读英文小说 / 读公版书」工具。每个生词都自带前后 ~300 字上下文 → AI 中文释义 → 一键存欧陆词典。支持 **PDF 与 EPUB**，支持 **桌面鼠标 + 平板触屏**。
 
-**🔗 在线地址**：https://kevinguo0351.github.io/context-vocab-reader/ （PWA，可「添加到主屏」当 App 用；首次需在 ⚙ 填 key + 代理 URL，见下）
+**🔗 在线地址**：https://kevinguo0351.github.io/context-vocab-reader/ （PWA，可「添加到主屏」当 App 用；首次在 ⚙ 填 DeepSeek key + 欧陆 token 即可）
 
 **配套项目**：[Context Vocab Chrome Extension](https://github.com/kevinguo0351/context-vocab-extension) —— 处理「网页划词」。本 Reader 处理「读完整 PDF / EPUB」的另一半场景，复用同一套「上下文 + DeepSeek 释义 + 一键存欧陆」体验。
 
@@ -30,7 +30,7 @@
 
 ### 其它
 - **BYOK**（自带 key）：DeepSeek key 和欧陆 token 只存在浏览器 `localStorage`，不上传任何服务器。
-- 纯前端 SPA；跨域由一个**可选的、无状态的 Cloudflare Worker 代理**解决（见下）。
+- 纯前端 SPA，直接调用 DeepSeek / 欧陆（两者均支持网页 CORS，无需任何代理/后端）。
 - 阅读进度自动保存（EPUB 按 CFI），书目记在本地。
 
 ---
@@ -57,20 +57,14 @@ npm run preview
 
 ## 配置 API Key（首次必做）
 
-点右上角 **⚙ 设置**，填三项（都存在本地 `localStorage`）：
+点右上角 **⚙ 设置**，填 key（都存在本地 `localStorage`）：
 
 | 字段 | 用途 | 哪里拿 |
 |---|---|---|
 | **DeepSeek API key** | 生成中文释义 | https://platform.deepseek.com |
 | **欧陆 token** | 存生词本（带笔记） | https://my.eudic.net/OpenAPI/Authorization |
-| **代理 URL**（可选） | 解决浏览器跨域，见下 | 部署 Worker 后得到 |
 
-### 为什么需要「代理 URL」
-DeepSeek 和欧陆的接口**不带浏览器 CORS 头**，纯网页/PWA 直接 `fetch` 会被浏览器拦截。两种解法：
-- **部署 `worker/worker.js` 到 Cloudflare**（推荐，免费）：它是个**透明无状态代理**——只转发请求 + 加 CORS 头，**不存任何密钥**。部署后把它的 URL 填进「代理 URL」。三条路由：`/deepseek`、`/eudic/word`、`/eudic/note`。部署步骤见 `worker/worker.js` 顶部注释。
-- **跑在 Tauri 壳里**：同源限制不适用，可不配代理直连。
-
-「代理 URL」留空时直连——在 Tauri 里能用，纯浏览器里会被 CORS 拦。
+App 直接调用 DeepSeek（`api.deepseek.com`）和欧陆（`api.frdic.com`）——两者都支持网页跨域、且国内可直连，**无需任何代理或后端**。
 
 ---
 
@@ -93,7 +87,6 @@ DeepSeek 和欧陆的接口**不带浏览器 CORS 头**，纯网页/PWA 直接 `
 context-vocab-reader/
 ├── index.html              # 工具栏 + #reader-main 容器
 ├── vite.config.js          # Vite + PWA（端口 1420 固定）
-├── worker/worker.js        # 可选 Cloudflare 代理（DeepSeek + 欧陆 CORS）
 ├── src/
 │   ├── main.js             # 入口：装配查词/批量/触屏/加载文件
 │   ├── style.css           # 全部样式（含触屏 @media、批量、复习窗）
@@ -131,18 +124,18 @@ context-vocab-reader/
 ## 部署
 
 - **前端**：推到 `main` 自动触发 GitHub Actions（`.github/workflows/deploy.yml`）→ 构建（`BASE_PATH=/context-vocab-reader/`）→ 发布到 GitHub Pages。在线地址见顶部。
-- **Worker 代理**：浏览器/PWA 构建调 DeepSeek/欧陆会被 CORS 拦，需把 `worker/worker.js` 部署到 Cloudflare Workers（无状态、不存密钥），再把它的 URL 填进 ⚙「代理 URL」。步骤见 `worker/worker.js` 顶部注释。
+- **无需后端/代理**：DeepSeek、欧陆均支持网页直连，纯静态站即可。
 
 ## 在平板上使用
 
 1. 用 Safari / Chrome 打开在线地址 → 分享 → **添加到主屏幕**（全屏独立 App）。
-2. 点 **⚙**：填 DeepSeek key、欧陆 token、Worker 的「代理 URL」。
+2. 点 **⚙**：填 DeepSeek key、欧陆 token。
 3. 点 **📂** 从「文件」App 选 PDF / EPUB。
 4. **单击单词查词** / EPUB **左右滑动翻页** + 底部调字号·行距·主题 / 右上「批量」进批量模式。
 
 ## 技术栈
 
-Vite + 原生 JS（无框架/TS/Tailwind，刻意与扩展保持一致） · pdfjs-dist · epubjs · idb · dompurify · @mozilla/readability（已装未用）· vite-plugin-pwa · 可选 Cloudflare Worker。
+Vite + 原生 JS（无框架/TS/Tailwind，刻意与扩展保持一致） · pdfjs-dist · epubjs · idb · dompurify · @mozilla/readability（已装未用）· vite-plugin-pwa。
 
 ## License
 

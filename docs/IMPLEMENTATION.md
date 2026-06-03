@@ -7,7 +7,7 @@
 
 ## 0. 一句话架构
 
-纯前端 Vite SPA：`#reader-main` 里渲染 PDF（canvas + 透明文本层）或 EPUB（epubjs iframe）。用户**划词/点词** → 抓「词 + 前后 ~300 字上下文」→ 调 **DeepSeek** 出中文释义 → 存 **欧陆**（远程）+ **IndexedDB**（本地）。跨域由可选的 **Cloudflare Worker** 透明代理解决。**批量模式**把「逐词查」换成「先标记、后统一生成、再复习」。**触屏层**让上述在平板上也成立。
+纯前端 Vite SPA：`#reader-main` 里渲染 PDF（canvas + 透明文本层）或 EPUB（epubjs iframe）。用户**划词/点词** → 抓「词 + 前后 ~300 字上下文」→ 调 **DeepSeek** 出中文释义 → 存 **欧陆**（远程）+ **IndexedDB**（本地）。DeepSeek/欧陆 均支持网页直连（CORS 开放），**无需代理/后端**。**批量模式**把「逐词查」换成「先标记、后统一生成、再复习」。**触屏层**让上述在平板上也成立。
 
 ```
                  ┌───────────────── main.js（装配一切）─────────────────┐
@@ -67,7 +67,7 @@
 
 ### 2.2 面板 + DeepSeek
 - `openPanel(data, {onLookup, onSave})`：先建面板骨架（显示词 + loading），立刻 `onLookup({word, context})`。
-- `api.js#lookupWord`：POST 到 `deepseekUrl()`（有 `worker_url` 走 `<worker>/deepseek`，否则直连），模型 `deepseek-v4-flash`，`response_format: json_object`，`temperature 0.3`，`max_tokens 500`。System prompt 要求输出四字段：`meaning`（字典义 10–30 字）/`in_context`（结合上下文 2–3 句）/`type`（词性）/`note`（记忆点）。
+- `api.js#lookupWord`：POST 直连 `api.deepseek.com`，模型 `deepseek-v4-flash`，`response_format: json_object`，`temperature 0.3`，`max_tokens 500`。System prompt 要求输出四字段：`meaning`（字典义 10–30 字）/`in_context`（结合上下文 2–3 句）/`type`（词性）/`note`（记忆点）。
 - `parseModelJson` **5 级容错**：①直接 parse ②去 ```` ```json ```` 围栏 ③抓第一个 `{…}` ④修中文引号 ⑤逐字段正则兜底。绝不把原始串塞进释义。
 - `renderResult` → 内部调 `renderResultInto`（共享标记，复习窗右栏也用它）渲染：释义块 + 语境 callout + 记忆点 + 词典外链 + 存欧陆按钮。
 
@@ -192,17 +192,7 @@ pdf.js v5 把每个 span 的尺寸/缩放写成**内联 CSS 变量** `--font-hei
 
 ---
 
-## 7. Worker 代理契约（`worker/worker.js`）
-无状态透明代理，**不存任何密钥**（key 由前端从 localStorage 取、放 `Authorization` 头转发）。三路由：
-- `POST /deepseek` → `api.deepseek.com/v1/chat/completions`
-- `POST /eudic/word` → `api.frdic.com/api/open/v1/studylist/word`
-- `POST /eudic/note` → `api.frdic.com/api/open/v1/studylist/note`
-- `OPTIONS *` → CORS 预检。
-部署：Cloudflare Workers 新建 → 贴整个文件 → Deploy → URL 填进 ⚙「代理 URL」。
-
----
-
-## 8. 已知限制
+## 7. 已知限制
 - **EPUB 在无头/自动化环境渲染不出来**（iframe 高度=0），导致 EPUB 的点词查词无法自动化验证；真机正常。swipe 翻页已验证。
 - **复杂版式 PDF**（双栏论文/公式/表格）文本层会塌，逐词/批量仍可用但复习左栏是整页 run-on 文本（MVP 取舍）。
 - **不规则字形级叠印 PDF** 正文去重不彻底（见坑2）。
