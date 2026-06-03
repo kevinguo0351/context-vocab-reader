@@ -9,7 +9,7 @@
 ## [0.1.1] - 2026-06-03 · 修复
 
 ### Fixed
-- **EPUB 加载后空白**：epubjs 在 flex 布局未稳定时按 0 高度渲染章节 iframe（书已载入但什么都看不到，线上实测 viewer 777px 而 iframe 0px）。`epub/render.js` 加 `ResizeObserver` 把 rendition 重新同步到 viewer 真实尺寸，修复初次 0 高度竞态 + 旋转。
+- **EPUB 加载后空白**：epubjs 在 flex 容器里用 `height:"100%"` 会把章节 iframe 塌成 0 高度（书已载入但什么都看不到，线上实测 viewer 777px 而 iframe 0px）。`epub/render.js` 改为**等一帧布局稳定后用显式像素尺寸** `renderTo`，并在旋转/窗口缩放时 `refit`。实测 iframe 恢复 696px、目录正常显示。
 
 ### Added
 - **拖拽加载**：可把 PDF/EPUB 直接拖到窗口（桌面便利）；触屏仍用 📂 按钮（拖拽不可用）。

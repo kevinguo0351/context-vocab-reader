@@ -26,39 +26,36 @@ export async function renderEpub(arrayBuffer, container, { startCfi } = {}) {
       ? "auto"
       : "none";
 
+  // Let the flex layout settle so the viewer has real pixel dimensions BEFORE
+  // epubjs measures it. With height:"100%" in a flex container, epubjs's
+  // paginated flow can collapse the chapter iframe to 0 height (the book loads
+  // but nothing shows) — passing explicit pixels avoids that.
+  await new Promise(requestAnimationFrame);
+  const sizeOf = () => {
+    const r = viewer.getBoundingClientRect();
+    return { width: Math.max(1, Math.round(r.width)), height: Math.max(1, Math.round(r.height)) };
+  };
+
   const book = ePub(arrayBuffer);
+  const { width, height } = sizeOf();
   const rendition = book.renderTo(viewer, {
-    width: "100%",
-    height: "100%",
+    width,
+    height,
     flow: "paginated",
     spread: spreadFor(),
     allowScriptedContent: false,
   });
 
-  // Re-paginate when the tablet is rotated.
-  const orientMq = window.matchMedia("(orientation: landscape)");
-  orientMq.addEventListener?.("change", () => rendition.spread(spreadFor()));
-
   await rendition.display(startCfi || undefined);
 
-  // epubjs measures the container at display() time; if the flex layout hasn't
-  // settled yet it renders the chapter iframe at 0 height → book loads but
-  // nothing is visible. A ResizeObserver re-syncs the rendition to the viewer's
-  // real size — fixes that initial 0-height race AND tablet rotation. Guard
-  // against a resize loop by only acting when the size actually changed.
-  let lastW = 0;
-  let lastH = 0;
-  const ro = new ResizeObserver(() => {
-    const r = viewer.getBoundingClientRect();
-    const w = Math.round(r.width);
-    const h = Math.round(r.height);
-    if (w > 0 && h > 0 && (w !== lastW || h !== lastH)) {
-      lastW = w;
-      lastH = h;
-      rendition.resize(w, h);
-    }
-  });
-  ro.observe(viewer);
+  // Re-fit on tablet rotation / window resize (and any late layout settle).
+  const refit = () => {
+    const s = sizeOf();
+    rendition.resize(s.width, s.height);
+    rendition.spread(spreadFor());
+  };
+  window.addEventListener("resize", refit);
+  window.matchMedia("(orientation: landscape)").addEventListener?.("change", refit);
 
   // Reading comfort: font size / line height / theme (persisted).
   setupReadingControls(rendition, viewer, nav);
