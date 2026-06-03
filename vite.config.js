@@ -10,8 +10,13 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 const tauriHost = process.env.TAURI_DEV_HOST;
+// GitHub Pages serves under /<repo>/. The deploy workflow sets BASE_PATH;
+// local dev / Tauri stay at "/". Manifest start_url/scope follow base so the
+// installed PWA stays scoped to the sub-path.
+const base = process.env.BASE_PATH || "/";
 
 export default defineConfig({
+  base,
   // Tauri pipes its own status output; let it own the terminal during dev.
   clearScreen: false,
   server: {
@@ -40,7 +45,9 @@ export default defineConfig({
         background_color: "#1a1a2e",
         display: "standalone",
         orientation: "any",
-        start_url: "/",
+        id: base,
+        start_url: base,
+        scope: base,
         icons: [
           { src: "favicon.svg", sizes: "any", type: "image/svg+xml" },
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
