@@ -31,22 +31,30 @@ export function createBatchController({ main, status, getBook, getRendition, dep
     target.addEventListener("contextmenu", onContextMenu, true);
   }
 
-  function onClick(e) {
+  // Mark (or unmark) the word at a point. `target` is the hit element when
+  // known (a real click / tap), used to detect an existing mark to remove.
+  function markAt(doc, x, y, target) {
     if (!_active) return;
-    const doc = e.target.ownerDocument || document;
-    const hit = findMarkElAtPoint(doc, e.clientX, e.clientY, e.target);
+    const hit = findMarkElAtPoint(doc, x, y, target);
     if (hit) {
-      e.preventDefault();
-      e.stopPropagation();
       removeMark(hit.dataset.batchMarkId);
       return;
     }
-    const rec = markWordAtPoint(doc, e.clientX, e.clientY);
+    const rec = markWordAtPoint(doc, x, y);
     if (rec) {
-      e.preventDefault();
       addMark(rec);
       doc.getSelection?.()?.removeAllRanges?.();
     }
+  }
+
+  // Desktop mouse path. On touch, marking is driven by the gesture layer's
+  // touch coordinates (controller.markAt) — NOT this synthetic click — because
+  // the post-tap synthetic click can land a word off inside the EPUB iframe.
+  function onClick(e) {
+    if (!_active) return;
+    e.preventDefault();
+    e.stopPropagation();
+    markAt(e.target.ownerDocument || document, e.clientX, e.clientY, e.target);
   }
 
   function onContextMenu(e) {
@@ -220,5 +228,5 @@ export function createBatchController({ main, status, getBook, getRendition, dep
   bind(main);
   document.addEventListener("keydown", onKeyToggle);
 
-  return { toggle, isActive: () => _active, attachEpub };
+  return { toggle, isActive: () => _active, attachEpub, markAt };
 }

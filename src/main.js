@@ -91,6 +91,7 @@ if (isTouch) {
       const data = captureSelectionInWindow(window, { rootSelector: ".textLayer" });
       if (data) onCapture(data);
     },
+    onMarkTap: (x, y, targetEl) => batch.markAt(document, x, y, targetEl),
   });
 }
 
@@ -111,6 +112,7 @@ function attachEpubGestures(rendition) {
           if (data) openPanel(data, { onLookup: lookupWord, onSave });
           else dismissAll();
         },
+        onMarkTap: (x, y, targetEl) => batch.markAt(c.document, x, y, targetEl),
         onSwipe: (dir) => (dir === "next" ? rendition.next() : rendition.prev()),
       });
     }

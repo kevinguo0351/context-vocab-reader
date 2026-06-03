@@ -16,7 +16,7 @@ const TAP_MOVE_PX = 10;
 const TAP_MS = 300;
 const SWIPE_DX = 50;
 
-export function setupReaderGestures(target, win, { isEpub, isBatchActive, onTap, onSelect, onSwipe }) {
+export function setupReaderGestures(target, win, { isEpub, isBatchActive, onTap, onSelect, onSwipe, onMarkTap }) {
   let sx = 0;
   let sy = 0;
   let st = 0;
@@ -55,9 +55,14 @@ export function setupReaderGestures(target, win, { isEpub, isBatchActive, onTap,
     }
     // 3) tap (no real movement, quick)
     if (Math.abs(dx) <= TAP_MOVE_PX && Math.abs(dy) <= TAP_MOVE_PX && dt <= TAP_MS) {
-      if (isBatchActive()) return; // batch marking handled by mode.js click handler
-      e.preventDefault(); // suppress compat mousedown → panel won't insta-dismiss
-      onTap?.(t.clientX, t.clientY);
+      // preventDefault suppresses the post-tap synthetic mouse events. That stops
+      // the panel-lifecycle mousedown from insta-dismissing (lookup), AND stops
+      // mode.js's onClick from marking at the (sometimes off-by-a-word) synthetic
+      // click point — in batch mode we mark here using the exact touch
+      // coordinates instead (same path single-word lookup uses, which is correct).
+      e.preventDefault();
+      if (isBatchActive()) onMarkTap?.(t.clientX, t.clientY, e.target);
+      else onTap?.(t.clientX, t.clientY);
     }
     // 4) else: vertical drag = scroll → ignore
   }
