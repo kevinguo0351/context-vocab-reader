@@ -28,6 +28,15 @@ document.querySelector("#open-file-btn").addEventListener("click", async () => {
   if (file) await loadFile(file);
 });
 
+// Drag-and-drop a PDF/EPUB anywhere onto the window (desktop convenience;
+// the 📂 button remains the path on touch where dragging isn't available).
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer?.files?.[0];
+  if (file) loadFile(file);
+});
+
 // Track the currently-open book so vocab saves carry source metadata and
 // EPUB progress can be persisted on relocation.
 let currentBook = null;

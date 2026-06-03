@@ -41,6 +41,25 @@ export async function renderEpub(arrayBuffer, container, { startCfi } = {}) {
 
   await rendition.display(startCfi || undefined);
 
+  // epubjs measures the container at display() time; if the flex layout hasn't
+  // settled yet it renders the chapter iframe at 0 height → book loads but
+  // nothing is visible. A ResizeObserver re-syncs the rendition to the viewer's
+  // real size — fixes that initial 0-height race AND tablet rotation. Guard
+  // against a resize loop by only acting when the size actually changed.
+  let lastW = 0;
+  let lastH = 0;
+  const ro = new ResizeObserver(() => {
+    const r = viewer.getBoundingClientRect();
+    const w = Math.round(r.width);
+    const h = Math.round(r.height);
+    if (w > 0 && h > 0 && (w !== lastW || h !== lastH)) {
+      lastW = w;
+      lastH = h;
+      rendition.resize(w, h);
+    }
+  });
+  ro.observe(viewer);
+
   // Reading comfort: font size / line height / theme (persisted).
   setupReadingControls(rendition, viewer, nav);
 
