@@ -38,9 +38,20 @@ function fitScale(unscaledWidth, container) {
   return Math.min(Math.max(fit, SCALE_MIN), SCALE_MAX);
 }
 
+// CMap tables + standard font data are served from /pdfjs/ (see the
+// pdfjsRuntimeAssets plugin in vite.config.js). BASE_URL keeps this correct
+// under the GitHub Pages sub-path as well as local dev.
+const PDFJS_ASSETS = `${import.meta.env.BASE_URL}pdfjs/`;
+
 export async function renderPdf(pdfjsLib, arrayBuffer, container, onProgress) {
   ensureMapUpsertSupport();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({
+    data: arrayBuffer,
+    // Without these, CJK/CID fonts fail to load and their glyphs render blank.
+    cMapUrl: `${PDFJS_ASSETS}cmaps/`,
+    cMapPacked: true,
+    standardFontDataUrl: `${PDFJS_ASSETS}standard_fonts/`,
+  }).promise;
 
   // Use page 1 to pick a scale + placeholder size (PDFs are almost always
   // uniform; per-page size is corrected when the page actually renders).

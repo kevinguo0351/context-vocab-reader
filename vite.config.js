@@ -8,6 +8,44 @@
 
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { createRequire } from "node:module";
+import { createReadStream, cpSync, existsSync } from "node:fs";
+import path from "node:path";
+
+const require = createRequire(import.meta.url);
+const pdfjsDir = path.dirname(require.resolve("pdfjs-dist/package.json"));
+
+// pdf.js fetches CMap tables (CJK/CID encodings) and the 14 standard font files
+// lazily at runtime as separate files. Without them a Chinese PDF logs
+// "Ensure that the `cMapUrl` API parameter is provided" and renders those
+// glyphs blank. Expose both dirs under /pdfjs/ — via middleware in dev, copied
+// into dist on build so GitHub Pages serves them too. They stay out of the
+// PWA precache (workbox globPatterns) so the 2.3 MB is fetched on demand only.
+function pdfjsRuntimeAssets() {
+  const SUBDIRS = ["cmaps", "standard_fonts"];
+  return {
+    name: "pdfjs-runtime-assets",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const match = /^\/pdfjs\/(cmaps|standard_fonts)\/([^?]+)/.exec(req.url || "");
+        if (!match) return next();
+        // path.normalize + prefix check keeps `..` from escaping the dir.
+        const dir = path.join(pdfjsDir, match[1]);
+        const file = path.normalize(path.join(dir, match[2]));
+        if (!file.startsWith(dir) || !existsSync(file)) return next();
+        res.setHeader("Content-Type", "application/octet-stream");
+        createReadStream(file).pipe(res);
+      });
+    },
+    closeBundle() {
+      for (const sub of SUBDIRS) {
+        cpSync(path.join(pdfjsDir, sub), path.join("dist", "pdfjs", sub), {
+          recursive: true,
+        });
+      }
+    },
+  };
+}
 
 const tauriHost = process.env.TAURI_DEV_HOST;
 // GitHub Pages serves under /<repo>/. The deploy workflow sets BASE_PATH;
@@ -34,6 +72,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    pdfjsRuntimeAssets(),
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
