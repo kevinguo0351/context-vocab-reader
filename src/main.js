@@ -129,6 +129,36 @@ function attachEpubGestures(rendition) {
   rendition.on("rendered", bindAll);
 }
 
+// A stale PWA precache can strand the app dead. Workbox keeps serving a cached
+// index.html + index-*.js from an older deploy, but a hashed asset that build
+// referenced has since been deleted from the server — so the shell boots fine
+// and only dies when it reaches for the missing chunk, as
+// "Setting up fake worker failed: Failed to fetch dynamically imported module".
+// Refreshing does not reliably help: the cached shell is what's being served.
+// Recover by dropping the service worker + its caches and reloading once, so
+// the next load comes straight from the network.
+const STALE_ASSET_RE =
+  /Failed to fetch dynamically imported module|Setting up fake worker failed|Importing a module script failed|error loading dynamically imported module/i;
+const RECOVERY_FLAG = "cvr:precache-recovered";
+
+async function recoverFromStalePrecache() {
+  // One attempt per tab session — a reload loop would be worse than the bug.
+  if (sessionStorage.getItem(RECOVERY_FLAG)) return false;
+  sessionStorage.setItem(RECOVERY_FLAG, "1");
+
+  try {
+    const registrations = (await navigator.serviceWorker?.getRegistrations?.()) || [];
+    await Promise.all(registrations.map((r) => r.unregister()));
+    const cacheKeys = (await globalThis.caches?.keys?.()) || [];
+    await Promise.all(cacheKeys.map((k) => globalThis.caches.delete(k)));
+  } catch (err) {
+    console.warn("precache cleanup failed; reloading anyway", err);
+  }
+
+  location.reload();
+  return true;
+}
+
 async function loadFile(file) {
   status.textContent = `加载中: ${file.name}…`;
   try {
@@ -175,6 +205,10 @@ async function loadFile(file) {
     }
   } catch (err) {
     console.error(err);
+    if (STALE_ASSET_RE.test(err?.message || "")) {
+      status.textContent = "检测到旧版本缓存，正在自动更新…";
+      if (await recoverFromStalePrecache()) return;
+    }
     status.textContent = `加载失败: ${err.message}`;
   }
 }

@@ -102,7 +102,15 @@ export default defineConfig({
         // PDF.js worker is large (~2MB); workbox by default warns above 2MiB.
         // Bump the cap so the precache succeeds without surgery.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        globPatterns: ["**/*.{js,css,html,svg,woff2}"],
+        // `mjs` matters: an earlier build's worker was emitted as
+        // `pdf.worker.min-<hash>.mjs`, which this list did NOT match — so the
+        // shell (index.html + index-*.js) got precached while the worker it
+        // pointed at did not. Once a later deploy deleted that hashed file,
+        // anyone holding the old precache was stuck with a durable 404
+        // ("Setting up fake worker failed") rather than a one-load race.
+        // Keep every emitted code extension here so a precached shell can
+        // never reference an uncached, deletable asset.
+        globPatterns: ["**/*.{js,mjs,css,html,svg,woff2}"],
       },
     }),
   ],

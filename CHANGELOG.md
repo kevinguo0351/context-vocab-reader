@@ -21,9 +21,13 @@
 ### 验证
 用 CDP 直连无头 Chrome 151 / Edge 140 驱动真实构建产物（非 dev server），按用户真实路径投放文件（合成 `DataTransfer` + `drop` 事件），断言**canvas 上真的有非白像素**而不只是 DOM 存在；每次运行换全新 profile，避免 PWA service worker 用旧构建的资源清单污染结果。覆盖：中英混排简历（1 页，含嵌入 CJK 字体）、扫描版 15 页 / 498 页 / 555 页大书（最大 137 MB，验多页懒加载）。已知**未能复现**的情形见下。
 
+- **陈旧 PWA 缓存把应用锁死（线上实际报的那条）**：报错原文 `加载失败: Setting up fake worker failed: "Failed to fetch dynamically imported module: …/assets/pdf.worker.min-iDqQPrd3.mjs"`。根因是 `globPatterns` 漏了 **`mjs`**：早期构建的 worker 被输出成 `pdf.worker.min-<hash>.mjs`，**不匹配该列表 → 从未进 precache**；而同一构建的 `index.html` + `index-*.js`（`.html`/`.js`）**进了 precache**。于是装过旧版的浏览器手握一套完整缓存的 app shell，它引用的 worker 既不在缓存里、又在后续部署中被删除 —— **持久性 404，不是一次加载的竞态**，刷新也不一定救得回来（被服务的正是那份缓存 shell）。两处修复：
+  1. `vite.config.js` 的 `globPatterns` 加入 `mjs`，让「已缓存的 shell 引用未缓存、且可被删除的资源」这个组合不再可能出现。（当前构建的 worker 已是 `worker-entry-*.js`，本身已进 precache。）
+  2. `main.js` 新增自愈：`loadFile` 捕到这类「动态导入的模块拉不到」错误时，注销 service worker + 清空 caches 后**重载一次**（`sessionStorage` 上锁，每标签页只做一次，杜绝重载循环），下一次加载直接走网络拿到当前部署。
+  - **局限**：自愈代码得先被缓存下来才能生效，所以**救不了已经卡在旧 shell 上的客户端** —— 那种情况只能手动清站点数据（iPad：设置 → Safari → 高级 → 网站数据 → 删除本站；已加到主屏的话删掉图标重加）。
+
 ### 已知未解
-- 上述四项都不能解释「**整页 100% 全空**」——本机在 Chrome / Edge、4 份 PDF 上都无法复现完全空白，最坏情况是丢 39% 的字。若在 iPad Safari 上仍是全空，需要在真机上抓状态栏原文再定位（Safari 同样缺这几个 builtin，但也可能是 137 MB 这类大文件触发 iOS 内存上限）。
-- 另发现一个能导致「加载失败: Setting up fake worker failed」的真实场景：PWA service worker 缓存了旧构建的资源清单，导致 worker chunk 404。部署后首次打开可能遇到，刷新即恢复；未做处理。
+- 上述都不能解释「**整页 100% 全空**」——本机在 Chrome / Edge、4 份 PDF 上都无法复现完全空白，最坏情况是丢 39% 的字。若真机上仍是全空，需要抓状态栏原文再定位。
 
 ---
 
