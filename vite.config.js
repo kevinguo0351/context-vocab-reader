@@ -78,7 +78,25 @@ export default defineConfig({
   plugins: [
     pdfjsRuntimeAssets(),
     VitePWA({
-      registerType: "autoUpdate",
+      // NOT "autoUpdate". autoUpdate implies skipWaiting + clientsClaim, which
+      // lets a freshly-deployed service worker seize control of a tab that is
+      // already running the PREVIOUS generation's JS — and then
+      // cleanupOutdatedCaches deletes that generation's chunks out from under
+      // it. The page looks fine until it reaches for a lazily-loaded chunk
+      // (here: the pdf.js worker), which is now neither in any cache nor on the
+      // server, and dies as
+      //   Setting up fake worker failed: Failed to fetch dynamically imported
+      //   module .../assets/worker-entry-<old hash>.js
+      // Reproduced deterministically over CDP: after deploying generation 2,
+      // a reload ran gen-1 code with controllerchange=1 and only gen-2's worker
+      // left in the cache. This bit users on EVERY deploy.
+      //
+      // "prompt" keeps the new worker in `waiting` until no client is using the
+      // old one, so a running tab always keeps a self-consistent generation.
+      // The cost is that an update lands on the next cold start instead of
+      // immediately — the right trade for a reader, where a surprise reload
+      // loses your place (PDF position isn't persisted yet at all).
+      registerType: "prompt",
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "Context Vocab Reader",
@@ -111,6 +129,11 @@ export default defineConfig({
         // Keep every emitted code extension here so a precached shell can
         // never reference an uncached, deletable asset.
         globPatterns: ["**/*.{js,mjs,css,html,svg,woff2}"],
+        // Belt-and-braces with registerType above: never take over a live page.
+        // (vite-plugin-pwa only defaults these from registerType, so setting
+        // them explicitly keeps the guarantee if registerType is ever changed.)
+        skipWaiting: false,
+        clientsClaim: false,
       },
     }),
   ],

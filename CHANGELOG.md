@@ -6,6 +6,21 @@
 
 ---
 
+## [0.1.6] - 2026-08-15 · 每次部署都会打断正在阅读的页面
+
+### Fixed
+- **新 service worker 抢占正在运行旧代码的页面（每次部署必然复发）**：0.1.5 只治了这条错误链的一半。`registerType: "autoUpdate"` 隐含 `skipWaiting` + `clientsClaim`，于是刚部署的 SW 会**中途接管一个已经在跑上一代 JS 的标签页**，同时 `cleanupOutdatedCaches` 把那一代的 chunk 从缓存里删掉。页面看起来一切正常，直到它去取某个懒加载 chunk（这里是 pdf.js worker）—— 那个文件此刻既不在任何缓存里、也已被新部署从服务器删除，于是报
+  `Setting up fake worker failed: Failed to fetch dynamically imported module .../assets/worker-entry-<旧 hash>.js`。
+  改为 `registerType: "prompt"`，并显式 `skipWaiting: false` / `clientsClaim: false`：新 SW 停在 `waiting`，直到没有客户端还在用旧的，正在阅读的标签页因此永远持有自洽的一代资源。**代价**是更新推迟到下一次冷启动才生效 —— 对阅读器是正确的取舍（突然重载会丢失阅读位置，而 PDF 目前根本不记位置）。
+  - 复现与验证（CDP 无头 Edge，全程不碰缓存，纯靠部署时序）：部署 gen2 后 reload —— **修复前** 页面跑 gen1 的 shell、`controllerchange=1`、缓存里只剩 gen2 的 worker，打开 PDF 立刻报上述错；**修复后** `controllerchange=0`、缓存里 gen1 与 gen2 的 worker 并存、打开 PDF 正常出图（共 1 页）。
+  - 0.1.5 的 `mjs` globPatterns 修复仍然有效，但它针对的是另一条机制（更早那代 worker 是 `.mjs`、从未进 precache）。这条才是会反复发作的那个。
+- 回归：改动后重跑 0.1.5 的全量套件（76 条断言）与陈旧缓存自愈用例，全部通过。
+
+### 仍需手动一次
+`registerType` 的改动**救不了已经卡住的客户端** —— 卡住的那一代代码里没有自愈逻辑。受影响的设备仍需清一次站点数据（iPad：设置 → Safari → 高级 → 网站数据 → 删除本站；加过主屏则删图标重加）。清过之后这类失败不再发生。
+
+---
+
 ## [0.1.5] - 2026-08-14 · PDF 打开是空白页
 
 一整轮「PDF 能选、能进加载、但页面上什么都没有」的修复。四个独立原因，共同表现都是**空白页配一个说加载成功的状态栏**。
