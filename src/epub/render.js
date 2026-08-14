@@ -21,8 +21,9 @@ export async function renderEpub(arrayBuffer, container, { startCfi } = {}) {
   container.appendChild(nav);
 
   // Two-page spread in landscape on a wide screen; single page in portrait.
+  const orientationQuery = window.matchMedia("(orientation: landscape)");
   const spreadFor = () =>
-    window.matchMedia("(orientation: landscape)").matches && window.innerWidth >= 800
+    orientationQuery.matches && window.innerWidth >= 800
       ? "auto"
       : "none";
 
@@ -55,7 +56,7 @@ export async function renderEpub(arrayBuffer, container, { startCfi } = {}) {
     rendition.spread(spreadFor());
   };
   window.addEventListener("resize", refit);
-  window.matchMedia("(orientation: landscape)").addEventListener?.("change", refit);
+  orientationQuery.addEventListener?.("change", refit);
 
   // Reading comfort: font size / line height / theme (persisted).
   setupReadingControls(rendition, viewer, nav);
@@ -79,5 +80,13 @@ export async function renderEpub(arrayBuffer, container, { startCfi } = {}) {
     }
   });
 
-  return { book, rendition };
+  const destroy = () => {
+    window.removeEventListener("resize", refit);
+    orientationQuery.removeEventListener?.("change", refit);
+    document.removeEventListener("keydown", onKey);
+    rendition.off?.("keyup", onKey);
+    book.destroy();
+  };
+
+  return { book, rendition, destroy };
 }

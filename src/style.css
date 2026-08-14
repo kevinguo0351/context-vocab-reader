@@ -146,6 +146,14 @@ body {
   display: block;
 }
 
+.pdf-page-error {
+  margin: 0;
+  padding: 32px;
+  color: #9b1c1c;
+  font-size: 14px;
+  text-align: center;
+}
+
 /* PDF.js text layer — invisible overlay for selection.
    Mirrors the rules in pdfjs-dist/web/pdf_viewer.css. */
 .textLayer {

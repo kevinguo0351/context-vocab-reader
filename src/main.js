@@ -41,6 +41,7 @@ document.addEventListener("drop", (e) => {
 // EPUB progress can be persisted on relocation.
 let currentBook = null;
 let currentRendition = null;
+let destroyCurrentReader = null;
 
 const onCapture = (data) => {
   if (isBatchActive()) return; // batch mode handles clicks itself
@@ -125,6 +126,8 @@ async function loadFile(file) {
   status.textContent = `加载中: ${file.name}…`;
   try {
     const buf = await file.arrayBuffer();
+    destroyCurrentReader?.();
+    destroyCurrentReader = null;
     main.innerHTML = "";
     currentRendition = null;
     main.dataset.kind = pickKind(file.name);
@@ -138,8 +141,9 @@ async function loadFile(file) {
 
     if (main.dataset.kind === "epub") {
       const savedCfi = await getProgress(id);
-      const { rendition } = await renderEpub(buf, main, { startCfi: savedCfi });
+      const { rendition, destroy } = await renderEpub(buf, main, { startCfi: savedCfi });
       currentRendition = rendition;
+      destroyCurrentReader = destroy;
       batch.attachEpub(rendition);
       if (isTouch) attachEpubGestures(rendition);
 

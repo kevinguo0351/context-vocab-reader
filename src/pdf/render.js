@@ -12,6 +12,23 @@ const SCALE_MAX = 2.0;
 const SIDE_PADDING = 32; // #reader-main left+right padding
 const NEAR_VIEWPORT = "150% 0px"; // pre-render pages within ~1.5 screens
 
+// pdf.js 5.7 uses the proposed Map upsert API, which is not available in
+// current stable Chromium/Edge releases. Keep the compatibility shim local to
+// the PDF path so the rest of the app does not depend on a global polyfill.
+function ensureMapUpsertSupport() {
+  if (typeof Map.prototype.getOrInsertComputed === "function") return;
+  Object.defineProperty(Map.prototype, "getOrInsertComputed", {
+    configurable: true,
+    writable: true,
+    value(key, callback) {
+      if (this.has(key)) return this.get(key);
+      const value = callback(key);
+      this.set(key, value);
+      return value;
+    },
+  });
+}
+
 // Fit the page to the container width (tablet portrait/landscape) instead of a
 // fixed scale that overflowed narrow viewports. The canvas backing store is
 // multiplied by devicePixelRatio separately for crispness.
@@ -22,6 +39,7 @@ function fitScale(unscaledWidth, container) {
 }
 
 export async function renderPdf(pdfjsLib, arrayBuffer, container, onProgress) {
+  ensureMapUpsertSupport();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
   // Use page 1 to pick a scale + placeholder size (PDFs are almost always
@@ -38,7 +56,7 @@ export async function renderPdf(pdfjsLib, arrayBuffer, container, onProgress) {
         const pageDiv = entry.target;
         observer.unobserve(pageDiv);
         renderOnePage(pdfjsLib, pdf, Number(pageDiv.dataset.pageNumber), pageDiv, scale, dpr)
-          .catch((err) => console.error("pdf page render failed", err));
+          .catch((err) => showPageError(pageDiv, err));
       }
     },
     { root: null, rootMargin: NEAR_VIEWPORT },
@@ -51,9 +69,15 @@ export async function renderPdf(pdfjsLib, arrayBuffer, container, onProgress) {
     pageDiv.style.width = `${base.width}px`;
     pageDiv.style.height = `${base.height}px`;
     container.appendChild(pageDiv);
-    observer.observe(pageDiv);
+    if (i > 1) observer.observe(pageDiv);
     onProgress?.(i, pdf.numPages);
   }
+
+  // Render page 1 eagerly and propagate its error to loadFile(). Previously
+  // every page rendered in a detached async callback, so the app reported a
+  // successful load even when the first page failed and remained blank.
+  const firstPageDiv = container.querySelector('.pdf-page[data-page-number="1"]');
+  await renderOnePage(pdfjsLib, pdf, 1, firstPageDiv, scale, dpr);
 }
 
 async function renderOnePage(pdfjsLib, pdf, pageNumber, pageDiv, scale, dpr) {
@@ -100,4 +124,15 @@ async function renderOnePage(pdfjsLib, pdf, pageNumber, pageDiv, scale, dpr) {
     viewport: cssViewport,
   });
   await textLayer.render();
+}
+
+function showPageError(pageDiv, error) {
+  console.error("pdf page render failed", error);
+  pageDiv.dataset.rendered = "";
+  pageDiv.replaceChildren();
+
+  const message = document.createElement("p");
+  message.className = "pdf-page-error";
+  message.textContent = `此页加载失败：${error?.message || "未知错误"}`;
+  pageDiv.appendChild(message);
 }
