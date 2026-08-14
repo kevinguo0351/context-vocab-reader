@@ -1,6 +1,12 @@
+// Must come before pdfjs-dist so Map.prototype is patched (Edge 140 lacks
+// getOrInsertComputed) before any pdf.js code can reach for it.
+import "./pdf/map-upsert-polyfill.js";
 import "./style.css";
 import * as pdfjsLib from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+// Our own worker entry, which re-installs the polyfill inside the worker realm
+// before loading pdf.worker.min.mjs. `?worker&url` gives the bundled worker's
+// URL for GlobalWorkerOptions.workerSrc (pdf.js spawns the Worker itself).
+import workerUrl from "./pdf/worker-entry.js?worker&url";
 import { renderPdf } from "./pdf/render.js";
 import { renderEpub } from "./epub/render.js";
 import { setupCapture, captureSelectionInWindow } from "./lookup/capture.js";

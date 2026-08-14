@@ -12,23 +12,6 @@ const SCALE_MAX = 2.0;
 const SIDE_PADDING = 32; // #reader-main left+right padding
 const NEAR_VIEWPORT = "150% 0px"; // pre-render pages within ~1.5 screens
 
-// pdf.js 5.7 uses the proposed Map upsert API, which is not available in
-// current stable Chromium/Edge releases. Keep the compatibility shim local to
-// the PDF path so the rest of the app does not depend on a global polyfill.
-function ensureMapUpsertSupport() {
-  if (typeof Map.prototype.getOrInsertComputed === "function") return;
-  Object.defineProperty(Map.prototype, "getOrInsertComputed", {
-    configurable: true,
-    writable: true,
-    value(key, callback) {
-      if (this.has(key)) return this.get(key);
-      const value = callback(key);
-      this.set(key, value);
-      return value;
-    },
-  });
-}
-
 // Fit the page to the container width (tablet portrait/landscape) instead of a
 // fixed scale that overflowed narrow viewports. The canvas backing store is
 // multiplied by devicePixelRatio separately for crispness.
@@ -44,7 +27,6 @@ function fitScale(unscaledWidth, container) {
 const PDFJS_ASSETS = `${import.meta.env.BASE_URL}pdfjs/`;
 
 export async function renderPdf(pdfjsLib, arrayBuffer, container, onProgress) {
-  ensureMapUpsertSupport();
   const pdf = await pdfjsLib.getDocument({
     data: arrayBuffer,
     // Without these, CJK/CID fonts fail to load and their glyphs render blank.

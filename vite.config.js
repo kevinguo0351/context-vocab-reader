@@ -55,6 +55,10 @@ const base = process.env.BASE_PATH || "/";
 
 export default defineConfig({
   base,
+  // pdf.js loads its worker as an ES module (`new Worker(src, {type:"module"})`),
+  // so src/pdf/worker-entry.js must be emitted as one too — the default 'iife'
+  // would break its static imports.
+  worker: { format: "es" },
   // Tauri pipes its own status output; let it own the terminal during dev.
   clearScreen: false,
   server: {
