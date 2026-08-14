@@ -1,6 +1,7 @@
-// Must come before pdfjs-dist so Map.prototype is patched (Edge 140 lacks
-// getOrInsertComputed) before any pdf.js code can reach for it.
-import "./pdf/map-upsert-polyfill.js";
+// Must come before pdfjs-dist: Edge 140 lacks Math.sumPrecise and Map/WeakMap
+// upsert, which pdf.js calls unconditionally. Patch them before any pdf.js code
+// can reach for them.
+import "./pdf/pdfjs-polyfills.js";
 import "./style.css";
 import * as pdfjsLib from "pdfjs-dist";
 // Our own worker entry, which re-installs the polyfill inside the worker realm

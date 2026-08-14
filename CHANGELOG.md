@@ -6,6 +6,27 @@
 
 ---
 
+## [0.1.5] - 2026-08-14 · PDF 打开是空白页
+
+一整轮「PDF 能选、能进加载、但页面上什么都没有」的修复。四个独立原因，共同表现都是**空白页配一个说加载成功的状态栏**。
+
+### Fixed
+- **pdfjs 无条件调用的新 builtin 缺失 → 字体整体不画（本轮主因）**：pdfjs-dist 5.7 直接调 `Math.sumPrecise` / `Map.prototype.getOrInsertComputed` / `WeakMap.prototype.getOrInsertComputed`，**无特性检测无 fallback**。Chrome 151（V8 15.1）全有，**Edge 140（V8 14.0）一个都没有**（Node 24 也没有）。其中 `Math.sumPrecise` 位于 pdf.js 的**字体重建**路径（`TrueTypeTableBuilder` 的 glyph `getSize()`、`name` 表 `exactLength`）——一 throw 该字体就加载失败，而 pdf.js 只把它记成 **warning**，于是用该字体绘制的每个字都不画。原 `map-upsert-polyfill.js` 只补了三者中的一个（且只补 `Map`，漏了 XFA 用的 `WeakMap`）。现扩成 `pdf/pdfjs-polyfills.js` 补齐全部，**两个 realm 各装一次**（打过补丁的 prototype 不跨 worker 边界）。
+  - 量化验证：Edge 140、固定 1000px 视口、同一份中英混排 PDF，非白像素 **162 077（12.23%）→ 225 066（16.98%）**，与 Chrome 151 **逐像素一致**，worker 报错清零。
+  - 影响程度取决于字体：Latin 字体多半能 fallback 替代（像素几乎不变），**CJK/CID 嵌入字体无可替代 → 直接不画**。
+- **CJK 字形空白**（`adbcd9e`）：pdf.js 运行时才按需拉 CMap 表与 14 个标准字体文件，缺了就报 "Ensure that the `cMapUrl` API parameter is provided" 并把这些字形画空。`vite.config.js` 新增 `pdfjsRuntimeAssets` 插件把两个目录挂到 `/pdfjs/`（dev 用中间件、build 时 `cpSync` 进 dist），`render.js` 传 `cMapUrl`/`cMapPacked`/`standardFontDataUrl`，并用 `BASE_URL` 兼容 GitHub Pages 子路径。2.3 MB 不进 PWA 预缓存，按需拉取。
+- **首页失败被静默**（`b962603`）：原先每页都在游离的 async 回调里渲染，第 1 页渲染失败也照样报「加载成功」，用户只看到白页。现在第 1 页**同步 await**、错误直接冒泡到 `loadFile()` 的 catch，状态栏显示真实原因。
+- **worker realm 漏打补丁**（`bc5f123`）：Map upsert 补丁在主线程装了但 worker 里没装。补丁过的 prototype 不跨 worker 边界，所以 `pdf/worker-entry.js`（我们塞给 `workerSrc` 的自定义 ES module 入口）必须再装一次。
+
+### 验证
+用 CDP 直连无头 Chrome 151 / Edge 140 驱动真实构建产物（非 dev server），按用户真实路径投放文件（合成 `DataTransfer` + `drop` 事件），断言**canvas 上真的有非白像素**而不只是 DOM 存在；每次运行换全新 profile，避免 PWA service worker 用旧构建的资源清单污染结果。覆盖：中英混排简历（1 页，含嵌入 CJK 字体）、扫描版 15 页 / 498 页 / 555 页大书（最大 137 MB，验多页懒加载）。已知**未能复现**的情形见下。
+
+### 已知未解
+- 上述四项都不能解释「**整页 100% 全空**」——本机在 Chrome / Edge、4 份 PDF 上都无法复现完全空白，最坏情况是丢 39% 的字。若在 iPad Safari 上仍是全空，需要在真机上抓状态栏原文再定位（Safari 同样缺这几个 builtin，但也可能是 137 MB 这类大文件触发 iOS 内存上限）。
+- 另发现一个能导致「加载失败: Setting up fake worker failed」的真实场景：PWA service worker 缓存了旧构建的资源清单，导致 worker chunk 404。部署后首次打开可能遇到，刷新即恢复；未做处理。
+
+---
+
 ## [0.1.4] - 2026-06-03 · 简化（移除代理）
 
 ### Changed

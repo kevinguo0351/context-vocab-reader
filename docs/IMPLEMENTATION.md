@@ -177,7 +177,7 @@ batches (keyPath "batchId")                                                 // v
 
 ---
 
-## 6. 三个关键坑 / 不变量（改代码前必读）
+## 6. 四个关键坑 / 不变量（改代码前必读）
 
 ### 坑1 · PDF 文本层缩放（最隐蔽）
 pdf.js v5 把每个 span 的尺寸/缩放写成**内联 CSS 变量** `--font-height` / `--scale-x`，靠样式表从 `--total-scale-factor` 算出真正的 `font-size` 和 `transform: scaleX(...)`。**必须**两件事齐全，否则文本层退回 16px、无 scaleX，整层与 canvas 错位（划词选区**和**批量标记框都会偏）：
@@ -189,6 +189,20 @@ pdf.js v5 把每个 span 的尺寸/缩放写成**内联 CSS 变量** `--font-hei
 
 ### 坑3 · 触屏 tap 的「兼容鼠标事件」
 真机 tap 会在 `touchend` 后合成 `mousedown/mouseup/click`。若不拦，`panel.js#installPanelLifecycle` 的 document `mousedown` 关窗逻辑会把**刚开的面板秒关**。解法：`gesture.js` 在普通模式 tap 时 `preventDefault()`（抑制合成鼠标事件）；批量模式**不拦**（让合成 click 去 `mode.onClick` 标记）。
+
+### 坑4 · pdfjs 无条件调用的新 builtin（换 pdfjs 版本时必查）
+pdfjs-dist 5.7 直接调用了几个**极新的 TC39 提案 API，没有特性检测、没有 fallback**。Chrome 151（V8 15.1）全都有；**Edge 140（V8 14.0）一个都没有**，Node 24 也没有。缺了不会报错到用户面前——pdf.js 把字体构建失败当 **warning** 咽掉，然后用该字体画的字就是不画，于是表现为「**canvas 尺寸对、页数对、状态栏说加载成功，但页面上没字**」。
+
+实测缺失清单（Edge 140 vs Chrome 151）与调用点：
+| API | 调用realm | 关键调用点 |
+|---|---|---|
+| `Math.sumPrecise` | worker(14)+main(1) | **字体重建**：`TrueTypeTableBuilder` 的 glyph `getSize()`、`name` 表 `exactLength`；另有文本宽度测量 |
+| `Map.prototype.getOrInsertComputed` | 两个 realm | `WorkerTransport#cacheSimpleMethod` 等 |
+| `WeakMap.prototype.getOrInsertComputed` | worker | XFA 的 `somCache` |
+
+补丁在 `pdf/pdfjs-polyfills.js`，**必须在两个 realm 各装一次**——打过补丁的 prototype 不跨 worker 边界，所以 `main.js` 顶部和 `pdf/worker-entry.js`（我们塞给 `workerSrc` 的自定义入口）都要 import 它。**升级 pdfjs 后请重新 grep** `build/pdf.mjs` + `build/pdf.worker.mjs`，确认没有新增的这类调用。
+
+量化验证（Edge 140，固定 1000px 视口，同一份中英混排 PDF）：补丁前非白像素 162 077（12.23%）→ 补丁后 225 066（16.98%），**与 Chrome 151 逐像素一致**，worker 报错清零。影响程度取决于字体：Latin 字体多半能 fallback 替代（像素几乎不变），**CJK/CID 嵌入字体无可替代 → 直接不画**。
 
 ---
 
